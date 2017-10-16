@@ -45,6 +45,7 @@
 #include <keystore/keystore_hidl_support.h>
 
 #include <hardware/hw_auth_token.h>
+#include <hardware/keymaster_defs.h>
 
 namespace keystore {
 
@@ -776,6 +777,27 @@ KeyStoreService::generateKey(const String16& name, const KeymasterArguments& par
         }
     }
 
+    AuthorizationSet opParams = params.getParameters();
+    for (auto param: opParams) {
+        if ((uint32_t) param.tag ==
+            (uint32_t) KM_TAG_SOTER_AUTO_SIGNED_COMMON_KEY_WHEN_GET_PUBLIC_KEY) {
+            Blob keyBlob;
+            String8 name8(reinterpret_cast<const char*>(&param.blob[0]),
+                                                        param.blob.size());
+            rc = mKeyStore->getKeyForName(&keyBlob,
+                               name8, uid, TYPE_KEYMASTER_10);
+            if (!rc.isOk()) {
+                return Status::ok();
+            }
+            auto key = blob2hidlVec(keyBlob);
+            KeyParameter keyParam;
+            keyParam.tag = (Tag) KM_TAG_SOTER_AUTO_SIGNED_COMMON_KEY_WHEN_GET_PUBLIC_KEY_BLOB;
+            keyParam.blob = key;
+            opParams.push_back(keyParam);
+            break;
+        }
+    }
+
     SecurityLevel securityLevel = flagsToSecurityLevel(flags);
     auto dev = mKeyStore->getDevice(securityLevel);
     if (!dev) {
@@ -818,7 +840,7 @@ KeyStoreService::generateKey(const String16& name, const KeymasterArguments& par
         error = mKeyStore->put(filename.string(), &keyBlob, get_user_id(uid));
     };
 
-    rc = KS_HANDLE_HIDL_ERROR(dev->generateKey(params.getParameters(), hidl_cb));
+    rc = KS_HANDLE_HIDL_ERROR(dev->generateKey(opParams.hidl_data(), hidl_cb));
     if (!rc.isOk()) {
         *aidl_return = static_cast<int32_t>(rc);
         return Status::ok();
