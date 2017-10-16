@@ -363,6 +363,8 @@ ErrorCode KeymasterEnforcement::AuthorizeBegin(const KeyPurpose purpose, const k
 
         case Tag::BOOTLOADER_ONLY:
             return ErrorCode::INVALID_KEY_BLOB;
+        default:
+            break;
         }
     }
 
