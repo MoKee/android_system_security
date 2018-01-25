@@ -708,26 +708,6 @@ KeyStoreServiceReturnCode KeyStoreService::generateKey(const String16& name,
         if (!checkBinderPermission(P_GEN_UNIQUE_ID)) return ResponseCode::PERMISSION_DENIED;
     }
 
-    AuthorizationSet opParams = params;
-    for (auto param: opParams) {
-        if((uint32_t)param.tag == (uint32_t)KM_TAG_SOTER_AUTO_SIGNED_COMMON_KEY_WHEN_GET_PUBLIC_KEY) {
-            Blob keyBlob;
-            String8 name8(reinterpret_cast<const char*>(&param.blob[0]),
-                                                        param.blob.size());
-            rc = mKeyStore->getKeyForName(&keyBlob,
-                               name8, uid, TYPE_KEYMASTER_10);
-            if (!rc.isOk()) {
-                return rc;
-            }
-            auto key = blob2hidlVec(keyBlob);
-            KeyParameter keyParam;
-            keyParam.tag = (Tag)KM_TAG_SOTER_AUTO_SIGNED_COMMON_KEY_WHEN_GET_PUBLIC_KEY_BLOB;
-            keyParam.blob = key;
-            opParams.push_back(keyParam);
-            break;
-        }
-    }
-
     bool usingFallback = false;
     auto& dev = mKeyStore->getDevice();
     AuthorizationSet keyCharacteristics = params;
@@ -762,7 +742,7 @@ KeyStoreServiceReturnCode KeyStoreService::generateKey(const String16& name,
         error = mKeyStore->put(filename.string(), &keyBlob, get_user_id(uid));
     };
 
-    rc = KS_HANDLE_HIDL_ERROR(dev->generateKey(opParams.hidl_data(), hidl_cb));
+    rc = KS_HANDLE_HIDL_ERROR(dev->generateKey(params, hidl_cb));
     if (!rc.isOk()) {
         return rc;
     }
